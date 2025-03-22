@@ -8,34 +8,50 @@ import (
 )
 
 func main() {
-	msg, err := os.Open("./messages.txt")
+	file, err := os.Open("./messages.txt")
 	if err != nil {
-		fmt.Printf("error opening file: %v", err)
+		fmt.Printf("error opening file: %v\n", err)
+		return
 	}
+	ch := getLinesChannel(file)
 
-	size := make([]byte, 8)
-	LINE := ""
+	for line := range ch {
+		fmt.Println("read:", line)
+	}
+}
 
-	for {
-		n, err := msg.Read(size)
-		if err != nil {
-			if err == io.EOF {
-				fmt.Printf("read: %s\n", LINE)
-				os.Exit(0)
+func getLinesChannel(f io.ReadCloser) <-chan string {
+	ch := make(chan string)
+
+	go func() {
+		defer f.Close()
+		defer close(ch)
+
+		buf := make([]byte, 8)
+		part := ""
+
+		for {
+			n, err := f.Read(buf)
+			if err != nil {
+				if err == io.EOF {
+					if part != "" {
+						ch <- part
+					}
+					break
+				}
+				fmt.Printf("error reading file: %v\n", err)
+				break
 			}
-			fmt.Printf("error reading file: %v", err)
-			break
+
+			part += string(buf[:n])
+			lines := strings.Split(part, "\n")
+
+			for i := 0; i < len(lines)-1; i++ {
+				ch <- lines[i]
+			}
+
+			part = lines[len(lines)-1]
 		}
-
-		parts := strings.Split(string(size[:n]), "\n")
-
-		for i := 0; i < len(parts)-1; i++ {
-			LINE += parts[i]
-			fmt.Printf("read: %s\n", LINE)
-			LINE = ""
-		}
-
-		LINE += parts[len(parts)-1]
-	}
-
+	}()
+	return ch
 }
