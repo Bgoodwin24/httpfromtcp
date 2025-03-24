@@ -2,9 +2,9 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"net"
-	"strings"
+
+	"github.com/Bgoodwin24/httpfromtcp/internal/request"
 )
 
 func main() {
@@ -23,47 +23,15 @@ func main() {
 		}
 
 		fmt.Printf("connection accepted: %v\n", conn.RemoteAddr())
-		ch := getLinesChannel(conn)
-
-		for line := range ch {
-			fmt.Printf("%v\n", line)
+		req, err := request.RequestFromReader(conn)
+		if err != nil {
+			fmt.Printf("error reading request line: %v", err)
+			conn.Close()
+			continue
 		}
+
+		fmt.Printf("Request line:\n- Method: %v\n- Target: %v\n- Version: %v\n", req.RequestLine.Method, req.RequestLine.RequestTarget, req.RequestLine.HttpVersion)
+		conn.Close()
 		fmt.Println("connection closed.")
 	}
-}
-
-func getLinesChannel(f net.Conn) <-chan string {
-	ch := make(chan string)
-
-	go func() {
-		defer f.Close()
-		defer close(ch)
-
-		buf := make([]byte, 8)
-		part := ""
-
-		for {
-			n, err := f.Read(buf)
-			if err != nil {
-				if err == io.EOF {
-					if part != "" {
-						ch <- part
-					}
-					break
-				}
-				fmt.Printf("error reading connection: %v\n", err)
-				break
-			}
-
-			part += string(buf[:n])
-			lines := strings.Split(part, "\n")
-
-			for i := 0; i < len(lines)-1; i++ {
-				ch <- lines[i]
-			}
-
-			part = lines[len(lines)-1]
-		}
-	}()
-	return ch
 }
