@@ -14,7 +14,7 @@ func TestHeadersParse(t *testing.T) {
 	n, done, err := headers.Parse(data)
 	require.NoError(t, err)
 	require.NotNil(t, headers)
-	assert.Equal(t, "localhost:42069", headers["Host"])
+	assert.Equal(t, "localhost:42069", headers["host"])
 	assert.Equal(t, 23, n)
 	assert.False(t, done)
 
@@ -24,7 +24,7 @@ func TestHeadersParse(t *testing.T) {
 	n, done, err = headers.Parse(data)
 	require.NoError(t, err)
 	require.NotNil(t, headers)
-	assert.Equal(t, "localhost:42069", headers["Host"])
+	assert.Equal(t, "localhost:42069", headers["host"])
 	assert.Equal(t, 26, n)
 	assert.False(t, done)
 
@@ -34,15 +34,15 @@ func TestHeadersParse(t *testing.T) {
 	n, done, err = headers.Parse(data)
 	require.NoError(t, err)
 	require.NotNil(t, headers)
-	assert.Equal(t, "localhost:42069", headers["Host"])
+	assert.Equal(t, "localhost:42069", headers["host"])
 	assert.Equal(t, 23, n)
 	assert.False(t, done)
 
 	data = []byte("Content-Type: application/json\r\n")
 	n, done, err = headers.Parse(data)
 	require.NoError(t, err)
-	assert.Equal(t, "localhost:42069", headers["Host"])
-	assert.Equal(t, "application/json", headers["Content-Type"])
+	assert.Equal(t, "localhost:42069", headers["host"])
+	assert.Equal(t, "application/json", headers["content-type"])
 	assert.Equal(t, 32, n)
 	assert.False(t, done)
 
@@ -53,6 +53,24 @@ func TestHeadersParse(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 2, n)
 	assert.True(t, done)
+
+	// Test: Capitals in header
+	headers = NewHeaders()
+	data = []byte("HOST: localhost:42069\r\n\r\n")
+	n, done, err = headers.Parse(data)
+	require.NoError(t, err)
+	require.NotNil(t, headers)
+	assert.Equal(t, "localhost:42069", headers["host"])
+	assert.Equal(t, 23, n)
+	assert.False(t, done)
+
+	// Test: Invalid character
+	headers = NewHeaders()
+	data = []byte("H@st: localhost:42069\r\n\r\n")
+	n, done, err = headers.Parse(data)
+	require.Error(t, err)
+	assert.False(t, done)
+	assert.Equal(t, 23, n)
 
 	// Test: Invalid spacing header
 	headers = NewHeaders()
