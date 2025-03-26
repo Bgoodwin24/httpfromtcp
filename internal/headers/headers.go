@@ -64,3 +64,13 @@ func validTokens(data []byte) bool {
 	}
 	return true
 }
+
+func (h Headers) Get(key string) string {
+	lowered := strings.ToLower(key)
+	for k, v := range h {
+		if strings.ToLower(k) == lowered {
+			return v
+		}
+	}
+	return ""
+}
