@@ -31,10 +31,12 @@ func main() {
 		}
 
 		fmt.Printf("Request line:\n- Method: %v\n- Target: %v\n- Version: %v\n", req.RequestLine.Method, req.RequestLine.RequestTarget, req.RequestLine.HttpVersion)
-		fmt.Printf("Headers:\n-")
+		fmt.Printf("Headers:\n")
 		for key, value := range req.Headers {
 			fmt.Printf("- %v: %v\n", key, value)
 		}
+		fmt.Printf("Body:\n")
+		fmt.Printf("%s", string(req.Body))
 		conn.Close()
 		fmt.Println("connection closed.")
 	}
