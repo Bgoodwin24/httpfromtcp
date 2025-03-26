@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"strings"
-	"unicode"
 )
 
 const crlf = "\r\n"
@@ -25,45 +24,43 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 	}
 
 	parts := bytes.SplitN(data[:idx], []byte(":"), 2)
-	key := string(parts[0])
+	key := strings.ToLower(string(parts[0]))
 
 	if key != strings.TrimRight(key, " ") {
 		return 0, false, fmt.Errorf("invalid header name: %s", key)
 	}
 
-	for _, c := range key {
-		if !isValidHeaderChar(c) {
-			return idx + 2, false, fmt.Errorf("invalid header name character: %c", c)
-		}
-	}
-
 	value := bytes.TrimSpace(parts[1])
 	key = strings.TrimSpace(key)
-
-	loweredKey := strings.ToLower(key)
-	if val, exists := h[loweredKey]; exists {
-		h[loweredKey] = val + ", " + string(value)
-	} else {
-		h[loweredKey] = string(value)
+	if !validTokens([]byte(key)) {
+		return 0, false, fmt.Errorf("invalid header token found: %s", key)
 	}
+	h.Set(key, string(value))
 	return idx + 2, false, nil
 }
 
 func (h Headers) Set(key, value string) {
+	key = strings.ToLower(key)
+	v, ok := h[key]
+	if ok {
+		value = strings.Join([]string{
+			v,
+			value,
+		}, ", ")
+	}
 	h[key] = value
 }
 
-func isValidHeaderChar(c rune) bool {
-	if unicode.IsLetter(c) || unicode.IsDigit(c) {
-		return true
-	}
+var tokenChars = []byte{'!', '#', '$', '%', '&', '\'', '*', '+', '-', '.', '^', '_', '`', '|', '~'}
 
-	specialChars := "!#$%&'*+-.^_`|~"
-	for _, sc := range specialChars {
-		if c == sc {
-			return true
+func validTokens(data []byte) bool {
+	for _, c := range data {
+		if !(c >= 'A' && c <= 'Z' ||
+			c >= 'a' && c <= 'z' ||
+			c >= '0' && c <= '9' ||
+			c == '-') {
+			return false
 		}
 	}
-
-	return false
+	return true
 }
