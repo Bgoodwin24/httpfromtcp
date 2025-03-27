@@ -86,3 +86,38 @@ func NewWriter(w io.Writer) *Writer {
 		state:  writerStatus,
 	}
 }
+
+func (w *Writer) WriteChunkedBody(p []byte) (int, error) {
+	totalBytes := 0
+	contLength := fmt.Sprintf("%x\r\n", len(p))
+	b, err := w.Writer.Write([]byte(contLength))
+	if err != nil {
+		return 0, err
+	}
+	totalBytes += b
+
+	b, err = w.Writer.Write(p)
+	if err != nil {
+		return 0, err
+	}
+	totalBytes += b
+
+	b, err = w.Writer.Write([]byte("\r\n"))
+	if err != nil {
+		return 0, err
+	}
+	totalBytes += b
+
+	return totalBytes, nil
+}
+
+func (w *Writer) WriteChunkedBodyDone() (int, error) {
+	totalBytes := 0
+	b, err := w.Writer.Write([]byte("0\r\n\r\n"))
+	if err != nil {
+		return 0, err
+	}
+	totalBytes += b
+
+	return totalBytes, nil
+}

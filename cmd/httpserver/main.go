@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/Bgoodwin24/httpfromtcp/internal/headers"
@@ -16,8 +17,14 @@ const port = 42069
 
 func main() {
 	handler := func(w *response.Writer, req *request.Request) {
+		s := &server.Server{}
 		var statusCode response.StatusCode
 		var htmlContent string
+
+		if strings.HasPrefix(req.RequestLine.RequestTarget, "/httpbin/") {
+			s.ProxyHandler(w, req)
+			return
+		}
 
 		switch req.RequestLine.RequestTarget {
 		case "/yourproblem":
