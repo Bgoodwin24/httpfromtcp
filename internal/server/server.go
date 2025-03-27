@@ -1,6 +1,7 @@
 package server
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"io"
 	"log"
@@ -104,10 +105,12 @@ func (s *Server) ProxyHandler(w *response.Writer, req *request.Request) {
 	}
 
 	headers.Set("Transfer-Encoding", "chunked")
+	headers.Set("Trailer", "X-Content-SHA256, X-Content-Length")
 
 	w.WriteStatusLine(response.StatusCode(httpReq.StatusCode))
 	w.WriteHeaders(headers)
 
+	var fullBody []byte
 	buf := make([]byte, 1024)
 	for {
 		n, err := httpReq.Body.Read(buf)
@@ -120,12 +123,28 @@ func (s *Server) ProxyHandler(w *response.Writer, req *request.Request) {
 			break
 		}
 
+		fullBody = append(fullBody, buf[:n]...)
+
 		_, writeErr := w.WriteChunkedBody(buf[:n])
 		if writeErr != nil {
 			w.WriteStatusLine(response.StatusInternalServerError)
 			w.WriteBody([]byte("Error writing chunked body"))
 			return
 		}
+
+		if err == io.EOF {
+			break
+		}
 	}
 	w.WriteChunkedBodyDone()
+
+	hash := sha256.Sum256(fullBody)
+	hashHex := fmt.Sprintf("%x", hash)
+
+	contentLength := fmt.Sprintf("%d", len(fullBody))
+
+	trailers := make(map[string]string)
+	trailers["X-Content-SHA256"] = hashHex
+	trailers["X-Content-Length"] = contentLength
+	w.WriteTrailers(trailers)
 }

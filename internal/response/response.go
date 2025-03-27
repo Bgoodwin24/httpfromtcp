@@ -112,12 +112,17 @@ func (w *Writer) WriteChunkedBody(p []byte) (int, error) {
 }
 
 func (w *Writer) WriteChunkedBodyDone() (int, error) {
-	totalBytes := 0
-	b, err := w.Writer.Write([]byte("0\r\n\r\n"))
-	if err != nil {
-		return 0, err
-	}
-	totalBytes += b
+	return w.Writer.Write([]byte("0\r\n"))
+}
 
-	return totalBytes, nil
+func (w *Writer) WriteTrailers(h headers.Headers) error {
+	for k, v := range h {
+		_, err := fmt.Fprintf(w.Writer, "%s: %s\r\n", k, v)
+		if err != nil {
+			return err
+		}
+	}
+
+	_, err := fmt.Fprint(w.Writer, "\r\n")
+	return err
 }
