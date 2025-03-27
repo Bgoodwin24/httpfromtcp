@@ -1,11 +1,12 @@
 package server
 
 import (
-	"fmt"
 	"log"
 	"net"
 	"strconv"
 	"sync/atomic"
+
+	"github.com/Bgoodwin24/httpfromtcp/internal/response"
 )
 
 type Server struct {
@@ -49,10 +50,18 @@ func (s *Server) listen() {
 }
 
 func (s *Server) handle(conn net.Conn) {
-	response := "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nHello World!\n"
-	_, err := fmt.Fprint(conn, response)
+	err := response.WriteStatusLine(conn, response.StatusOK)
 	if err != nil {
-		log.Printf("Error printing response: %v", err)
+		log.Printf("Error writing status line: %v", err)
+		conn.Close()
+		return
+	}
+
+	headers := response.GetDefaultHeaders(0)
+
+	err = response.WriteHeaders(conn, headers)
+	if err != nil {
+		log.Printf("Error writing headers: %v", err)
 		conn.Close()
 		return
 	}
