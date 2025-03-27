@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"strconv"
 	"strings"
 
@@ -188,4 +189,8 @@ func (r *Request) parseSingle(data []byte) (int, error) {
 	default:
 		return 0, fmt.Errorf("unknown state")
 	}
+}
+
+func Parse(conn net.Conn) (*Request, error) {
+	return RequestFromReader(conn)
 }
