@@ -1,35 +1,65 @@
 package main
 
 import (
-	"io"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
 
+	"github.com/Bgoodwin24/httpfromtcp/internal/headers"
 	"github.com/Bgoodwin24/httpfromtcp/internal/request"
+	"github.com/Bgoodwin24/httpfromtcp/internal/response"
 	"github.com/Bgoodwin24/httpfromtcp/internal/server"
 )
 
 const port = 42069
 
 func main() {
-	handler := func(w io.Writer, req *request.Request) *server.HandlerError {
+	handler := func(w *response.Writer, req *request.Request) {
+		var statusCode response.StatusCode
+		var htmlContent string
+
 		switch req.RequestLine.RequestTarget {
 		case "/yourproblem":
-			return &server.HandlerError{
-				StatusCode: 400,
-				Message:    "Your problem is not my problem\n",
-			}
+			statusCode = response.StatusBadRequest
+			htmlContent = `<html>
+			<head>
+				<title>400 Bad Request</title>
+			</head>
+			<body>
+				<h1>Bad Request</h1>
+				<p>Your request honestly kinda sucked.</p>
+			</body>
+			</html>`
 		case "/myproblem":
-			return &server.HandlerError{
-				StatusCode: 500,
-				Message:    "Woopsie, my bad\n",
-			}
+			statusCode = response.StatusInternalServerError
+			htmlContent = `<html>
+			<head>
+				<title>500 Internal Server Error</title>
+			</head>
+			<body>
+				<h1>Internal Server Error</h1>
+				<p>Okay, you know what? This one is on me.</p>
+			</body>
+			</html>`
 		default:
-			io.WriteString(w, "All good, frfr\n")
-			return nil
+			statusCode = response.StatusOK
+			htmlContent = `<html>
+			<head>
+				<title>200 OK</title>
+			</head>
+			<body>
+				<h1>Success!</h1>
+				<p>Your request was an absolute banger.</p>
+			</body>
+			</html>`
 		}
+		headers := headers.NewHeaders()
+		headers.Set("Content-Type", "text/html")
+
+		w.WriteStatusLine(statusCode)
+		w.WriteHeaders(headers)
+		w.WriteBody([]byte(htmlContent))
 	}
 
 	go server.Serve(port, handler)

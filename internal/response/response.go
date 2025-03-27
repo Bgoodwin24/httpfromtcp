@@ -9,6 +9,19 @@ import (
 
 type StatusCode int
 
+type writerState int
+
+const (
+	writerStatus writerState = iota
+	writerHeader
+	writerBody
+)
+
+type Writer struct {
+	Writer io.Writer
+	state  writerState
+}
+
 const (
 	StatusOK                  StatusCode = 200
 	StatusBadRequest          StatusCode = 400
@@ -16,17 +29,21 @@ const (
 	StatusInternalServerError StatusCode = 500
 )
 
-func WriteStatusLine(w io.Writer, statusCode StatusCode) error {
+func (w *Writer) WriteStatusLine(statusCode StatusCode) error {
+	if w.state != writerStatus {
+		return fmt.Errorf("error status does not match function in use: %v", w.state)
+	}
 	switch statusCode {
 	case StatusOK:
-		fmt.Fprintf(w, "HTTP/1.1 %d OK\r\n", statusCode)
+		fmt.Fprintf(w.Writer, "HTTP/1.1 %d OK\r\n", statusCode)
 	case StatusBadRequest:
-		fmt.Fprintf(w, "HTTP/1.1 %d Bad Request\r\n", statusCode)
+		fmt.Fprintf(w.Writer, "HTTP/1.1 %d Bad Request\r\n", statusCode)
 	case StatusInternalServerError:
-		fmt.Fprintf(w, "HTTP/1.1 %d Internal Server Error\r\n", statusCode)
+		fmt.Fprintf(w.Writer, "HTTP/1.1 %d Internal Server Error\r\n", statusCode)
 	default:
-		fmt.Fprint(w, "HTTP/1.1")
+		fmt.Fprint(w.Writer, "HTTP/1.1")
 	}
+	w.state = writerHeader
 	return nil
 }
 
@@ -38,16 +55,34 @@ func GetDefaultHeaders(contentLen int) headers.Headers {
 	return header
 }
 
-func WriteHeaders(w io.Writer, headers headers.Headers) error {
+func (w *Writer) WriteHeaders(headers headers.Headers) error {
+	if w.state != writerHeader {
+		return fmt.Errorf("error status does not match function in use: %v", w.state)
+	}
 	for k, v := range headers {
-		_, err := fmt.Fprintf(w, "%v: %v\r\n", k, v)
+		_, err := fmt.Fprintf(w.Writer, "%v: %v\r\n", k, v)
 		if err != nil {
 			return err
 		}
 	}
-	_, err := fmt.Fprintf(w, "\r\n")
+	_, err := fmt.Fprintf(w.Writer, "\r\n")
 	if err != nil {
 		return err
 	}
+	w.state = writerBody
 	return nil
+}
+
+func (w *Writer) WriteBody(p []byte) (int, error) {
+	if w.state != writerBody {
+		return 0, fmt.Errorf("error status does not match function in use: %v", w.state)
+	}
+	return w.Writer.Write(p)
+}
+
+func NewWriter(w io.Writer) *Writer {
+	return &Writer{
+		Writer: w,
+		state:  writerStatus,
+	}
 }

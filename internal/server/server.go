@@ -1,9 +1,6 @@
 package server
 
 import (
-	"bytes"
-	"fmt"
-	"io"
 	"log"
 	"net"
 	"strconv"
@@ -24,7 +21,7 @@ type HandlerError struct {
 	Message    string
 }
 
-type Handler func(w io.Writer, req *request.Request) *HandlerError
+type Handler func(w *response.Writer, req *request.Request)
 
 func Serve(port int, handler Handler) (*Server, error) {
 	addr := ":" + strconv.Itoa(port)
@@ -70,70 +67,10 @@ func (s *Server) handle(conn net.Conn) {
 		return
 	}
 
-	buf := &bytes.Buffer{}
-
-	handlerErr := s.handler(buf, req)
-
-	if handlerErr != nil {
-		err = WriteHandlerError(conn, handlerErr)
-		if err != nil {
-			log.Printf("Error writing handler error: %v", err)
-		}
-	} else {
-		body := buf.Bytes()
-
-		err = response.WriteStatusLine(conn, response.StatusOK)
-		if err != nil {
-			log.Printf("Error writing status line: %v", err)
-			conn.Close()
-			return
-		}
-
-		headers := response.GetDefaultHeaders(len(body))
-		err = response.WriteHeaders(conn, headers)
-		if err != nil {
-			log.Printf("Error writing headers: %v", err)
-			conn.Close()
-			return
-		}
-
-		_, err = conn.Write(body)
-		if err != nil {
-			log.Printf("Error writing response body: %v", err)
-			conn.Close()
-			return
-		}
+	writer := &response.Writer{
+		Writer: conn,
 	}
+	s.handler(writer, req)
+
 	conn.Close()
-}
-
-func WriteHandlerError(w io.Writer, herr *HandlerError) error {
-	var statusCode response.StatusCode
-	switch herr.StatusCode {
-	case 400:
-		statusCode = response.StatusBadRequest
-	case 404:
-		statusCode = response.StatusNotFound
-	case 500:
-		statusCode = response.StatusInternalServerError
-	default:
-		statusCode = response.StatusInternalServerError
-	}
-
-	err := response.WriteStatusLine(w, statusCode)
-	if err != nil {
-		return err
-	}
-
-	headers := response.GetDefaultHeaders(len(herr.Message))
-	err = response.WriteHeaders(w, headers)
-	if err != nil {
-		return err
-	}
-
-	_, err = fmt.Fprint(w, herr.Message)
-	if err != nil {
-		return err
-	}
-	return nil
 }
