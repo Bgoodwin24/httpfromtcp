@@ -18,8 +18,6 @@ const port = 42069
 func main() {
 	handler := func(w *response.Writer, req *request.Request) {
 		s := &server.Server{}
-		var statusCode response.StatusCode
-		var htmlContent string
 
 		if strings.HasPrefix(req.RequestLine.RequestTarget, "/httpbin/") {
 			s.ProxyHandler(w, req)
@@ -28,8 +26,7 @@ func main() {
 
 		switch req.RequestLine.RequestTarget {
 		case "/yourproblem":
-			statusCode = response.StatusBadRequest
-			htmlContent = `<html>
+			htmlContent := `<html>
 			<head>
 				<title>400 Bad Request</title>
 			</head>
@@ -38,9 +35,14 @@ func main() {
 				<p>Your request honestly kinda sucked.</p>
 			</body>
 			</html>`
+			header := headers.NewHeaders()
+			header.Set("Content-Type", "text/html")
+			w.WriteStatusLine(response.StatusBadRequest)
+			w.WriteHeaders(header)
+			w.WriteBody([]byte(htmlContent))
+			return
 		case "/myproblem":
-			statusCode = response.StatusInternalServerError
-			htmlContent = `<html>
+			htmlContent := `<html>
 			<head>
 				<title>500 Internal Server Error</title>
 			</head>
@@ -49,9 +51,25 @@ func main() {
 				<p>Okay, you know what? This one is on me.</p>
 			</body>
 			</html>`
+			header := headers.NewHeaders()
+			header.Set("Content-Type", "text/html")
+			w.WriteStatusLine(response.StatusInternalServerError)
+			w.WriteHeaders(header)
+			w.WriteBody([]byte(htmlContent))
+			return
+		case "/video":
+			header := headers.NewHeaders()
+			header.Set("Content-Type", "video/mp4")
+			data, err := os.ReadFile("./assets/vim.mp4")
+			if err != nil {
+				w.WriteStatusLine(response.StatusInternalServerError)
+				return
+			}
+			w.WriteStatusLine(response.StatusOK)
+			w.WriteHeaders(header)
+			w.WriteBody(data)
 		default:
-			statusCode = response.StatusOK
-			htmlContent = `<html>
+			htmlContent := `<html>
 			<head>
 				<title>200 OK</title>
 			</head>
@@ -60,13 +78,13 @@ func main() {
 				<p>Your request was an absolute banger.</p>
 			</body>
 			</html>`
+			header := headers.NewHeaders()
+			header.Set("Content-Type", "text/html")
+			w.WriteStatusLine(response.StatusOK)
+			w.WriteHeaders(header)
+			w.WriteBody([]byte(htmlContent))
+			return
 		}
-		headers := headers.NewHeaders()
-		headers.Set("Content-Type", "text/html")
-
-		w.WriteStatusLine(statusCode)
-		w.WriteHeaders(headers)
-		w.WriteBody([]byte(htmlContent))
 	}
 
 	go server.Serve(port, handler)
